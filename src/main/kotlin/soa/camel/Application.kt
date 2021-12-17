@@ -40,9 +40,25 @@ class SearchController(private val producerTemplate: ProducerTemplate) {
 class Router(meterRegistry: MeterRegistry) : RouteBuilder() {
 
     private val perKeywordMessages = TaggedCounter("per-keyword-messages", "keyword", meterRegistry)
+    fun keywordsToRequest(keywords: String): String {
+        var finalKeywords: String
+        //replace the first max to tweeter query
+        finalKeywords = keywords.replaceFirst("max:","?count=")
+        // the rest of max will be ignore
+        finalKeywords = finalKeywords.replace("max:","")
+
+        return finalKeywords
+    }
 
     override fun configure() {
         from(DIRECT_ROUTE)
+            .process{
+                    exchange ->
+                var keywords = exchange.getIn().getHeader("keywords").toString()
+                val finalKeywords = keywordsToRequest(keywords)
+                exchange.getIn().setHeader("keywords", finalKeywords)
+
+            }
             .toD("twitter-search:\${header.keywords}")
             .wireTap(LOG_ROUTE)
             .wireTap(COUNT_ROUTE)
